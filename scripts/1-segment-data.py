@@ -12,7 +12,6 @@ base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing'
 # Set file path
 file = f'{base_path}/data/{sub}.mff'
 
-
 # Set the directory path to save the segmented data
 segmented_data_dir = f'{base_path}/segmented_data'
 sub_dir = os.path.join(segmented_data_dir, sub)
@@ -101,8 +100,9 @@ for _, row in event_timestamps.iterrows():
         # If the difference between the current and previous timestamp is greater than 20 seconds or
         # the current event is different from the previous event, it's the start of a new segment
         if (timestamp - prev_timestamp > 20) or (event != prev_event):
-            segment_duration = prev_timestamp - segment_start
-            segments.append((segment_start, prev_timestamp, prev_event, segment_duration))
+            segment_end = prev_timestamp
+            segment_duration = segment_end - segment_start
+            segments.append((segment_start, segment_end, prev_event, segment_duration))
             segment_start = timestamp
             prev_event = event
 
@@ -110,14 +110,18 @@ for _, row in event_timestamps.iterrows():
 
 # Add the last segment if it exists
 if segment_start is not None:
-    segment_duration = prev_timestamp - segment_start
-    segments.append((segment_start, prev_timestamp, prev_event, segment_duration))
+    segment_end = prev_timestamp
+    segment_duration = segment_end - segment_start
+    segments.append((segment_start, segment_end, prev_event, segment_duration))
 
 # Create a DataFrame from the segments list
-segments_df = pd.DataFrame(segments, columns=['start', 'stop', 'event', 'duration'])
+segments_df = pd.DataFrame(segments, columns=['start', 'end', 'event', 'duration'])
 
-# Load the segments DataFrame
-segments_df = pd.read_csv(f'{base_path}/segmented_data/stim-onset/{sub}_event_timestamps.csv')
+# Save the segments DataFrame as a CSV file
+segments_csv_filename = f'{sub}_segments.csv'
+segments_csv_filepath = os.path.join(save_dir, segments_csv_filename)
+segments_df.to_csv(segments_csv_filepath, index=False)
+print(f"\nSegments saved to '{segments_csv_filepath}'")
 
 # Load the WAV durations DataFrame
 wav_durations_df = pd.read_csv(f'{base_path}/segmented_data/stim-onset/wav_durations.csv')
@@ -130,23 +134,16 @@ wav_files = ['Jobs1.wav', 'Jobs2.wav', 'Jobs3.wav',
 # Get the sample rate from the raw data
 sampling_rate = raw.info['sfreq']
 
-
-
 # Iterate through the segments and WAV files
 for i, (_, segment) in enumerate(segments_df.iterrows()):
     filename = wav_files[i]
     start_time = segment['start']
+    end_time = segment['end']
     wav_duration = wav_durations_df.loc[wav_durations_df['filename'] == filename, 'duration'].values[0]
-
-    # Convert duration from seconds to samples
-    duration_samples = int(wav_duration * sampling_rate)
-
-    # Calculate the end time
-    end_time = start_time + wav_duration
 
     # Convert times to samples
     start_sample = int(start_time * sampling_rate)
-    end_sample = start_sample + duration_samples
+    end_sample = int(end_time * sampling_rate)
 
     # Extract the segment
     segment_data = raw.get_data(start=start_sample, stop=end_sample)
@@ -155,7 +152,7 @@ for i, (_, segment) in enumerate(segments_df.iterrows()):
     segment_raw = mne.io.RawArray(segment_data, raw.info, verbose='WARNING')
 
     # Save the segment as a FIF file
-    segment_filename = f'{sub}_segment_{i + 1}_{filename.split(".")[0]}.fif'
+    segment_filename = f'{sub}_segment_{i + 1}_{filename.split(".")[0]}_eeg.fif'
     segment_filepath = os.path.join(sub_dir, segment_filename)
     segment_raw.save(segment_filepath, overwrite=True)
     print(f"Segment {i + 1} saved as '{segment_filepath}'")
