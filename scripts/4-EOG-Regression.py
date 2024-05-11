@@ -24,7 +24,7 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
     # Set parameters for fif path
     word_path = f'{base_path}/annotations/words/tsv/{stim}-words.tsv'
     phoneme_path = f'{base_path}/annotations/phonemes/tsv/{stim}-phonemes.tsv'
-    fif_path = f'{base_path}/segmented_data/pilot-2/{sub}_{seg}_{stim}.fif'
+    fif_path = f'{base_path}/segmented_data/pilot-2/{sub}_{seg}_{stim}_eeg.fif'
 
     # Load the data in MNE
     raw = mne.io.read_raw_fif(fif_path, preload=True)
@@ -93,10 +93,19 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
     word_info = pd.read_csv(word_path, delimiter='\t', encoding='utf-8')
 
     # Create word epochs
+
+    # Create word epochs
     word_onsets = (word_info['Start'].values * sampling_rate).astype(int)
     word_events = np.column_stack((word_onsets, np.zeros_like(word_onsets), np.ones_like(word_onsets)))
-    word_epochs = mne.Epochs(raw_car, word_events, tmin=-0.2, tmax=0.6, baseline=None, reject=None, flat=None, preload=True)
-    word_epochs.metadata = word_info  # Assign metadata to word epochs
+    word_epochs = mne.Epochs(raw_car, word_events, tmin=-0.2, tmax=0.6, baseline=None, reject=None, flat=None,
+                             preload=True)
+
+    # Drop bad epochs
+    word_epochs.drop_bad()
+
+    # Assign metadata to word epochs
+    word_epochs.metadata = word_info.iloc[:len(word_epochs.events)]
+
 
     # Run EOG regression
     model = EOGRegression(picks="eeg", picks_artifact="eog").fit(word_epochs)
@@ -108,7 +117,7 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
 
     # Apply EOG regression to the epochs
     epochs_clean = model.apply(word_epochs)
-    epochs_clean.apply_baseline()
+    # epochs_clean.apply_baseline()
 
     # Compute the evoked response on the corrected data
     evoked_clean = epochs_clean.average()
@@ -133,9 +142,9 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
 if __name__ == '__main__':
     # Set parameters for fif path
     sub = 'pilot-2'
-    stim = 'Jobs1'
-    seg = 'segment_1'
-    base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Speech'
+    stim = 'AttFast'
+    seg = 'segment_7'
+    base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing'
 
     # Run ICA and EOG regression
     epochs_clean, evoked_clean = run_ica_and_eog_regression(sub, stim, seg, base_path)
