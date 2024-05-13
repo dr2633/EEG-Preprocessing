@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from collections import defaultdict
 
-sub = 'pilot-2'
+sub = 'pilot-3'
 
 base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing'
 
@@ -128,8 +128,9 @@ wav_durations_df = pd.read_csv(f'{base_path}/segmented_data/stim-onset/wav_durat
 
 # Define the order of WAV files
 wav_files = ['Jobs1.wav', 'Jobs2.wav', 'Jobs3.wav',
-             'Jobs1.wav', 'Jobs2.wav', 'Jobs3.wav',
-             'AttFast.wav', 'BecFast.wav']
+             'BecFast.wav','AttSlow.wav', 'CampFast.wav',
+             'BecSlow.wav', 'AttFast.wav','CampSlow.wav'
+             'Jobs1.wav','Jobs2.wav', 'Jobs3.wav']
 
 # Get the sample rate from the raw data
 sampling_rate = raw.info['sfreq']
