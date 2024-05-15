@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing'
     word_path = os.path.join(base_path, 'annotations', 'words', 'tsv', f'{stimulus}-words.tsv')
-    fif_path = os.path.join(base_path, 'segmented_data', 'pilot-2', f'{subject}_{segment}_{stimulus}_eeg.fif')
+    fif_path = os.path.join(base_path, 'segmented_data', '../scratch/pilot-2', f'{subject}_{segment}_{stimulus}_eeg.fif')
 
     # Load the data in MNE
     raw = mne.io.read_raw_fif(fif_path, preload=True)

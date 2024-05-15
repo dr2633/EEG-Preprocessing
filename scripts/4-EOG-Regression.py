@@ -24,13 +24,38 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
     # Set parameters for fif path
     word_path = f'{base_path}/annotations/words/tsv/{stim}-words.tsv'
     phoneme_path = f'{base_path}/annotations/phonemes/tsv/{stim}-phonemes.tsv'
-    fif_path = f'{base_path}/segmented_data/pilot-2/{sub}_{seg}_{stim}_eeg.fif'
+    fif_path = f'{base_path}/segmented_data/{sub}/{sub}_{seg}_{stim}_eeg.fif'
 
     # Load the data in MNE
     raw = mne.io.read_raw_fif(fif_path, preload=True)
 
     # Get sampling rate
     sampling_rate = raw.info['sfreq']
+
+    # Calculate mean and standard deviation across all electrodes
+    data = raw.get_data()  # Get the EEG data
+    mean_data = np.mean(data, axis=1)  # Calculate mean across channels
+    std_data = np.std(data, axis=1)  # Calculate standard deviation across channels
+
+    # Define threshold for identifying bad electrodes (e.g., 5 SD)
+    threshold = 4 * np.mean(std_data)
+
+    # Find indices of electrodes exceeding the threshold
+    bad_indices = np.where(np.abs(mean_data) > threshold)[0]
+
+    # Convert indices to channel names
+    bad_channels = [raw.ch_names[idx] for idx in bad_indices]
+
+    # Interpolate bad electrodes
+    raw.info['bads'] = bad_channels
+    raw.interpolate_bads()
+
+    # Define the path to save the bad electrodes TSV file
+    bad_electrodes_path = f'/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing/segmented_data/{sub}/bad-elecs.tsv'
+
+    # Save the list of bad electrodes to a TSV file
+    bad_electrodes_df = pd.DataFrame({'bad_electrodes': bad_channels})
+    bad_electrodes_df.to_csv(bad_electrodes_path, sep='\t', index=False)
 
     # Apply ICA before filtering
     ica = ICA(n_components=10, random_state=42)
@@ -51,7 +76,7 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
     plt.close(ica_sources_fig)
 
     # Select components from ICA to remove
-    ica.exclude = [8,9]
+    ica.exclude = []
 
     # Save the excluded components to a JSON file
     excluded_components = {
@@ -73,7 +98,7 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
     raw.notch_filter(60)
 
     # Set filter
-    raw.filter(l_freq=.1, h_freq=15.0)
+    raw.filter(l_freq=1, h_freq=15.0)
 
     # Re-reference the data using the 'VREF' channel
     raw.set_eeg_reference(['VREF'])
@@ -105,7 +130,6 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
 
     # Assign metadata to word epochs
     word_epochs.metadata = word_info.iloc[:len(word_epochs.events)]
-
 
     # Run EOG regression
     model = EOGRegression(picks="eeg", picks_artifact="eog").fit(word_epochs)
@@ -141,9 +165,9 @@ def run_ica_and_eog_regression(sub, stim, seg, base_path):
 
 if __name__ == '__main__':
     # Set parameters for fif path
-    sub = 'pilot-2'
-    stim = 'AttFast'
-    seg = 'segment_7'
+    sub = 'pilot-3'
+    stim = 'Jobs3'
+    seg = 'segment_3'
     base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing'
 
     # Run ICA and EOG regression
