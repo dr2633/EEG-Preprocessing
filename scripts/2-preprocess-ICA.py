@@ -21,7 +21,7 @@ fif_path = f'{base_path}/segmented_data/{sub}/{sub}_{seg}_{stim}_eeg.fif'
 raw = mne.io.read_raw_fif(fif_path, preload=True)
 
 # For visualizing raw data in terminal
-# raw.plot()
+raw.plot()
 
 # Get sampling rate
 sampling_rate = raw.info['sfreq']

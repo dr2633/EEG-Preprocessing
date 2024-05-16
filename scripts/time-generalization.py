@@ -1,6 +1,3 @@
-# When running epochs with window size -3 to 3 s, the process gets interrupted
-
-
 import mne
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,7 +16,7 @@ def load_and_preprocess_data(fif_path):
     raw.filter(l_freq=1.0, h_freq=30.0)
     raw.set_eeg_reference(['VREF'])
     eeg_channels = [ch for ch in raw.ch_names if ch.startswith('E')]
-    raw = raw.pick_channels(eeg_channels)
+    raw.pick_channels(eeg_channels)
     raw_car = raw.set_eeg_reference('average', projection=True)
     return raw_car
 
@@ -30,7 +27,7 @@ def create_phoneme_epochs(raw_car, phoneme_info, sampling_rate):
     min_len = min(len(phoneme_events), len(phoneme_info))
     phoneme_events = phoneme_events[:min_len]
     phoneme_info = phoneme_info[:min_len]
-    phoneme_epochs = mne.Epochs(raw_car, phoneme_events, tmin=-.2, tmax=.6, preload=True, baseline=None,
+    phoneme_epochs = mne.Epochs(raw_car, phoneme_events, tmin=-0.2, tmax=0.6, preload=True, baseline=None,
                                 event_repeated='drop')
 
     # Align metadata with epochs
@@ -39,12 +36,14 @@ def create_phoneme_epochs(raw_car, phoneme_info, sampling_rate):
     return phoneme_epochs
 
 def filter_epochs(epochs, desired_phonation_value, desired_manner_value, desired_place_value, desired_roundness_value, desired_frontback_value):
-    filtered_epochs_phonation = epochs[epochs.metadata['phonation'] == desired_phonation_value]
-    filtered_epochs_manner = epochs[epochs.metadata['manner'] == desired_manner_value]
-    filtered_epochs_place = epochs[epochs.metadata['place'] == desired_place_value]
-    filtered_epochs_roundness = epochs[epochs.metadata['roundness'] == desired_roundness_value]
-    filtered_epochs_frontback = epochs[epochs.metadata['frontback'] == desired_frontback_value]
-    filtered_epochs = mne.concatenate_epochs([filtered_epochs_phonation, filtered_epochs_manner, filtered_epochs_place, filtered_epochs_roundness, filtered_epochs_frontback])
+    conditions = [
+        (epochs.metadata['phonation'] == desired_phonation_value),
+        (epochs.metadata['manner'] == desired_manner_value),
+        (epochs.metadata['place'] == desired_place_value),
+        (epochs.metadata['roundness'] == desired_roundness_value),
+        (epochs.metadata['frontback'] == desired_frontback_value)
+    ]
+    filtered_epochs = epochs[np.logical_and.reduce(conditions)]
     return filtered_epochs
 
 
@@ -64,10 +63,10 @@ def perform_decoding(filtered_epochs, desired_phonation_value, desired_manner_va
             'frontback': desired_frontback_value
         }[feat]
         y = (filtered_epochs.metadata[feat] == desired_value).astype(int)
-        accuracy_scores = np.empty(filtered_epochs.get_data(copy=True).shape[-1])
+        accuracy_scores = np.empty(filtered_epochs.get_data().shape[-1])
 
         for tt in range(accuracy_scores.shape[0]):
-            X_ = filtered_epochs.get_data(copy=True)[:, :, tt]
+            X_ = filtered_epochs.get_data()[:, :, tt]
             scores = cross_val_score(clf, X_, y, scoring='roc_auc', cv=cv, n_jobs=-1)
             accuracy_scores[tt] = scores.mean()
 
@@ -102,7 +101,7 @@ def save_accuracy_scores(accuracy_dict, base_path):
     csv_file_path = os.path.join(base_path, 'accuracy_scores.csv')
     with open(csv_file_path, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Key', 'Accuracy Scores'])
+        writer.writerow(['Feature', 'Accuracy Scores'])
         for key, scores in accuracy_dict.items():
             writer.writerow([key, scores])
 
@@ -110,8 +109,8 @@ def save_accuracy_scores(accuracy_dict, base_path):
 def main():
     # Set parameters for fif path
     sub = 'pilot-3'
-    stim = 'AttSlow'
-    seg = 'segment_5'
+    stim = 'Jobs3'
+    seg = 'segment_3'
     comp = 'no-ica'
 
     base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing'
@@ -133,7 +132,7 @@ def main():
     desired_frontback_value = 'f'
 
     filtered_epochs = filter_epochs(phoneme_epochs, desired_phonation_value, desired_manner_value, desired_place_value, desired_roundness_value, desired_frontback_value)
-    filtered_epochs.resample(100)
+    filtered_epochs.resample(500)
 
     accuracy_dict = perform_decoding(filtered_epochs, desired_phonation_value, desired_manner_value, desired_place_value, desired_roundness_value, desired_frontback_value)
     visualize_results(filtered_epochs, accuracy_dict, fig_path, sub, seg, stim)
