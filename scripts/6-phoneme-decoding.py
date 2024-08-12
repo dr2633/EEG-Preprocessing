@@ -17,7 +17,7 @@ import pandas as pd
 def load_and_preprocess_data(fif_path):
     raw = mne.io.read_raw_fif(fif_path, preload=True)
     raw.filter(l_freq=1.0, h_freq=30.0)
-    raw.set_eeg_reference(['VREF'])
+    #raw.set_eeg_reference(['VREF'])
     eeg_channels = [ch for ch in raw.ch_names if ch.startswith('E')]
     raw = raw.pick_channels(eeg_channels)
     raw_car = raw.set_eeg_reference('average', projection=True)
@@ -30,7 +30,7 @@ def create_phoneme_epochs(raw_car, phoneme_info, sampling_rate):
     min_len = min(len(phoneme_events), len(phoneme_info))
     phoneme_events = phoneme_events[:min_len]
     phoneme_info = phoneme_info[:min_len]
-    phoneme_epochs = mne.Epochs(raw_car, phoneme_events, tmin=-.2, tmax=.6, preload=True, baseline=None,
+    phoneme_epochs = mne.Epochs(raw_car, phoneme_events, tmin=-1, tmax=1, preload=True, baseline=None,
                                 event_repeated='drop')
 
     # Align metadata with epochs
@@ -110,8 +110,8 @@ def save_accuracy_scores(accuracy_dict, base_path):
 def main():
     # Set parameters for fif path
     sub = 'pilot-3'
-    stim = 'AttSlow'
-    seg = 'segment_5'
+    stim = 'Jobs1'
+    seg = 'segment_1'
     comp = 'no-ica'
 
     base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing'

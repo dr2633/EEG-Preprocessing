@@ -8,13 +8,14 @@ import json
 from scipy.stats import zscore
 
 # Set parameters for fif path
-sub = 'pilot-3'
-stim = 'Jobs1'
-seg = 'segment_1'
+sub = 'pilot-2'
+stim = 'Jobs2'
+seg = 'segment_2'
 comp = 'ica'
 
 base_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing'
 word_path = f'{base_path}/annotations/words/tsv/{stim}-words.tsv'
+phoneme_path = f'{base_path}/annotations/phonemes/tsv/{stim}-phonemes.tsv'
 fif_path = f'{base_path}/segmented_data/{sub}/{sub}_{seg}_{stim}_eeg.fif'
 
 # Load the data in MNE
@@ -26,30 +27,7 @@ raw.plot()
 # Get sampling rate
 sampling_rate = raw.info['sfreq']
 
-# Apply ICA before filtering
-ica = ICA(n_components=20, random_state=35)
-ica.fit(raw)
-
-# When running in terminal to visualize sources
-ica.plot_sources(raw)
-
-
-# Define the directory path for saving ICA figures
-ica_fig_dir = os.path.join(base_path, 'vis', 'individual', 'ICA', sub)
-os.makedirs(ica_fig_dir, exist_ok=True)
-
-# Save ICA component plot
-ica_components_fig = ica.plot_components()
-ica_components_fig.savefig(os.path.join(ica_fig_dir, f'{sub}_{seg}_{stim}_components.jpg'))
-plt.close(ica_components_fig)
-
-# Save ICA source plot
-ica_sources_fig = ica.plot_sources(raw)
-ica_sources_fig.savefig(os.path.join(ica_fig_dir, f'{sub}_{seg}_{stim}_sources.jpg'))
-plt.close(ica_sources_fig)
-
-# Select components from ICA to remove
-ica.exclude = [0,7,16,17,19]
+raw.info["bads"].extend(["E1", "E8", "E128"])
 
 
 # Calculate mean and standard deviation across all electrodes
@@ -76,6 +54,33 @@ bad_electrodes_path = f'/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessin
 # Save the list of bad electrodes to a TSV file
 bad_electrodes_df = pd.DataFrame({'bad_electrodes': bad_channels})
 bad_electrodes_df.to_csv(bad_electrodes_path, sep='\t', index=False)
+
+# Apply ICA before filtering
+ica = ICA(n_components=20, random_state=35)
+ica.fit(raw)
+
+# When running in terminal to visualize sources
+ica.plot_sources(raw)
+
+
+# Define the directory path for saving ICA figures
+ica_fig_dir = os.path.join(base_path, 'vis', 'individual', 'ICA', sub)
+os.makedirs(ica_fig_dir, exist_ok=True)
+
+# Save ICA component plot
+ica_components_fig = ica.plot_components()
+ica_components_fig.savefig(os.path.join(ica_fig_dir, f'{sub}_{seg}_{stim}_components.jpg'))
+plt.close(ica_components_fig)
+
+# Save ICA source plot
+ica_sources_fig = ica.plot_sources(raw)
+ica_sources_fig.savefig(os.path.join(ica_fig_dir, f'{sub}_{seg}_{stim}_sources.jpg'))
+plt.close(ica_sources_fig)
+
+# Select components from ICA to remove
+ica.exclude = [16]
+
+
 
 # Save the excluded components to a JSON file
 excluded_components = {
@@ -116,12 +121,25 @@ word_info = pd.read_csv(word_path, delimiter='\t', encoding='utf-8')
 # Create word epochs
 word_onsets = (word_info['Start'].values * sampling_rate).astype(int)
 word_events = np.column_stack((word_onsets, np.zeros_like(word_onsets), np.ones_like(word_onsets)))
-word_epochs = mne.Epochs(raw_car, word_events, tmin=-0.2, tmax=.6, baseline=None, reject=None, flat=None)
+word_epochs = mne.Epochs(raw_car, word_events, tmin=-2, tmax=2, baseline=None, reject=None, flat=None)
 word_epochs.metadata = word_info  # Assign metadata to word epochs
 
 # Define the directory path for saving word epochs
 word_epochs_dir = os.path.join(base_path, 'derivatives', 'individual', 'word_epochs')
 os.makedirs(word_epochs_dir, exist_ok=True)
+
+phoneme_info = pd.read_csv(phoneme_path, delimiter='\t', encoding='utf-8')
+
+phoneme_onsets = (phoneme_info['Start'].values * sampling_rate).astype(int)
+phoneme_events = np.column_stack((phoneme_onsets, np.zeros_like(phoneme_onsets), np.ones_like(phoneme_onsets)))
+min_len = min(len(phoneme_events), len(phoneme_info))
+phoneme_events = phoneme_events[:min_len]
+phoneme_info = phoneme_info[:min_len]
+phoneme_epochs = mne.Epochs(raw_car, phoneme_events, tmin=-1, tmax=1, preload=True, baseline=None,
+                            event_repeated='drop')
+
+# Align metadata with epochs
+phoneme_epochs.metadata = phoneme_info.iloc[phoneme_epochs.selection]
 
 # # Save word epochs with a specific filename
 # word_epochs_filename = f'word-epo-{sub}-{stim}-{seg}-epo.fif'
@@ -131,6 +149,8 @@ os.makedirs(word_epochs_dir, exist_ok=True)
 
 # Average epochs for evoked response
 word_evoked = word_epochs.average()
+# Average epochs for evoked response
+phoneme_evoked = phoneme_epochs.average()
 
 # Define the path for saving the evoked figure
 evoked_fig_name = f'word-evoked-{sub}-{stim}_{seg}.jpg'
