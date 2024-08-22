@@ -24,10 +24,11 @@ def create_tone_with_silence_and_impulse(duration, tone_freq, tone_duration, sil
     # Create the full audio with alternating tone and silence
     full_audio = np.zeros(total_samples)
     impulse_channel = np.zeros(total_samples)
+    impulse_duration_samples = int(0.02 * sample_rate)  # 20 ms impulse duration
     for i in range(0, total_samples, tone_samples + silence_samples):
         if i + tone_samples <= total_samples:
             full_audio[i:i + tone_samples] = single_tone
-            impulse_channel[i] = 1  # Add impulse at the start of each tone
+            impulse_channel[i:i + impulse_duration_samples] = 1  # Add 20 ms impulse
 
     return full_audio, impulse_channel
 
@@ -48,7 +49,7 @@ audio = audio / np.max(np.abs(audio))
 stereo_audio = np.column_stack((audio, impulse_channel))
 
 # Define the output path
-output_path = '/Users/derekrosenzweig/Documents/GitHub/Speech-Decoding/eeg-tones/wav/repeated_tones_with_impulses.wav'
+output_path = '/Users/derekrosenzweig/Documents/GitHub/EEG-Preprocessing/eeg-tones/wav/tones.wav'
 
 # Save as WAV file
 wavfile.write(output_path, sample_rate, (stereo_audio * 32767).astype(np.int16))
